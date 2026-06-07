@@ -1,166 +1,327 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-model Member {
-  id         String          @id @default(uuid())
-  name       String
-  email      String?
-  memberCode String          @unique
-  phone      BigInt
-  password   String          @default("Test@12345")
-  address    String?
-  DOB        String
-  reviewDone Boolean         @default(false)
-  gender     Gender
-  DOJ        String
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
-  sales      Sales[]
-  attendance Attendance[]
-  fitness    FitnessRecord[]
-  // diets      DietChart[]
+// ─── AUTH ────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(TRAINEE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  traineeProfile TraineeProfile?
+  invitesSent    InviteCode[]    @relation("SentBy")
 }
 
-model Services {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  price       Int
-  duration    Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  sales       Sales[]
+enum Role {
+  ADMIN
+  TRAINEE
 }
 
-model Sales {
-  id          String   @id @default(uuid())
-  member_id   String
-  service_id  String
-  service     Services @relation(fields: [service_id], references: [id])
-  description String?
-  discount    Int
-  amount      Int
-  paid        Int
-  startDate   String
-  endDate     String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  member      Member   @relation(fields: [member_id], references: [id])
+model InviteCode {
+  id          String    @id @default(cuid())
+  code        String    @unique @default(cuid())
+  email       String?
+  used        Boolean   @default(false)
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime?
+  createdById String
+  createdBy   User      @relation("SentBy", fields: [createdById], references: [id])
 }
 
-model Attendance {
-  id        String   @id @default(uuid())
-  member_id String
-  member    Member   @relation(fields: [member_id], references: [id])
-  date      String
-  time      String   @default("00:00:00")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ─── TRAINEE PROFILE ─────────────────────────────────────────────────────────
+
+model TraineeProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  firstName    String
+  lastName     String
+  phone        String?
+  dateOfBirth  DateTime?
+  gender       String?
+  profilePhoto String?
+  heightCm     Float?
+  startWeight  Float?
+  goal         String?
+  notes        String?
+  isActive     Boolean  @default(true)
+  joinedAt     DateTime @default(now())
+
+  measurements      BodyMeasurement[]
+  progressPhotos    ProgressPhoto[]
+  assignedPrograms  ProgramAssignment[]
+  assignedDietPlans DietPlanAssignment[]
+  checkIns          CheckIn[]
+  comments          Comment[]
 }
 
-model FitnessRecord {
-  id          String   @id @default(uuid())
-  member_id   String
-  member      Member   @relation(fields: [member_id], references: [id])
-  date        String
-  weight      Int
-  height      Int
-  chest       Int?
-  abs         Int?
-  hips        Int?
-  thighs      Int?
-  treadmill   Int?
-  chestPress  Int?
-  latPulldown Int?
-  squats      Int?
-  sitAndReach Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// ─── BODY MEASUREMENTS ───────────────────────────────────────────────────────
+
+model BodyMeasurement {
+  id            String         @id @default(cuid())
+  traineeId     String
+  trainee       TraineeProfile @relation(fields: [traineeId], references: [id])
+  recordedAt    DateTime       @default(now())
+  weightKg      Float?
+  bodyFatPct    Float?
+  muscleMassPct Float?
+  chest         Float?
+  waist         Float?
+  hips          Float?
+  leftArm       Float?
+  rightArm      Float?
+  leftThigh     Float?
+  rightThigh    Float?
+  shoulders     Float?
+  neck          Float?
+  bmi           Float?
+  bmr           Float?
+  whr           Float?
+  notes         String?
 }
 
-model Enquiry {
-  id           String      @id @default(uuid())
-  name         String
-  phone        BigInt
-  followupDate String?
-  message      String?
-  type         EnquiryType
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+// ─── PROGRESS PHOTOS ─────────────────────────────────────────────────────────
+
+model ProgressPhoto {
+  id        String         @id @default(cuid())
+  traineeId String
+  trainee   TraineeProfile @relation(fields: [traineeId], references: [id])
+  filePath  String
+  angle     PhotoAngle?
+  takenAt   DateTime       @default(now())
+  notes     String?
 }
 
-enum EnquiryType {
-  call
-  walkin
-  instagram
-  whatsapp
+enum PhotoAngle {
+  FRONT
+  BACK
+  LEFT
+  RIGHT
 }
 
-model ToDo {
-  id        String   @id @default(uuid())
-  title     String
-  completed Boolean  @default(false)
-  isDeleted Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-enum Gender {
-  male
-  female
-  other
-}
-
-// model DietChart {
-//   id          String   @id @default(uuid())
-//   member_id   String
-//   member      Member   @relation(fields: [member_id], references: [id])
-//   date        String
-//   conditions  Json
-//   meals       Json
-//   note        String
-//   createdAt   DateTime @default(now())
-//   updatedAt   DateTime @updatedAt
-// }
-
-model FoodItems {
-  id        String   @id @default(uuid())
-  name      String
-  calories  Int
-  recipe    String?
-  protein   Int? // grams
-  carbs     Int? // grams
-  fats      Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+// ─── EXERCISE LIBRARY ────────────────────────────────────────────────────────
 
 model Exercise {
-  id              String   @id @default(uuid())
-  json_id         String
-  name            String
-  force           String?
-  level           String?
-  mechanic        String?
-  equipment       String?
-  primaryMuscle   String[]
-  secondaryMuscle String[]
-  instructions    String[]
-  category        String?
-  images          String[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String            @id @default(cuid())
+  name             String
+  description      String?
+  category         String?
+  muscleGroups     String[]
+  equipment        String?
+  videoUrl         String?
+  instructions     String?
+  createdAt        DateTime          @default(now())
+  workoutExercises WorkoutExercise[]
+}
+
+// ─── WORKOUT PROGRAMS ────────────────────────────────────────────────────────
+
+model WorkoutProgram {
+  id            String          @id @default(cuid())
+  name          String
+  description   String?
+  mode          ProgramMode     @default(SIMPLE)
+  durationWeeks Int?
+  isTemplate    Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  phases        ProgramPhase[]
+  assignments   ProgramAssignment[]
+}
+
+enum ProgramMode {
+  SIMPLE
+  DETAILED
+}
+
+model ProgramPhase {
+  id          String         @id @default(cuid())
+  programId   String
+  program     WorkoutProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  name        String
+  order       Int
+  weeks       WorkoutWeek[]
+  workoutDays WorkoutDay[]
+}
+
+model WorkoutWeek {
+  id         String       @id @default(cuid())
+  phaseId    String
+  phase      ProgramPhase @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  weekNumber Int
+  days       WorkoutDay[]
+}
+
+model WorkoutDay {
+  id        String        @id @default(cuid())
+  phaseId   String?
+  phase     ProgramPhase? @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  weekId    String?
+  week      WorkoutWeek?  @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  dayLabel  String
+  order     Int
+  notes     String?
+  exercises WorkoutExercise[]
+}
+
+model WorkoutExercise {
+  id         String   @id @default(cuid())
+  dayId      String
+  day        WorkoutDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+  order      Int
+  sets       Int?
+  reps       String?
+  restSeconds Int?
+  tempo      String?
+  notes      String?
+  rpe        Float?
+}
+
+model ProgramAssignment {
+  id         String         @id @default(cuid())
+  traineeId  String
+  trainee    TraineeProfile @relation(fields: [traineeId], references: [id])
+  programId  String
+  program    WorkoutProgram @relation(fields: [programId], references: [id])
+  startDate  DateTime?
+  endDate    DateTime?
+  isActive   Boolean        @default(true)
+  assignedAt DateTime       @default(now())
+  notes      String?
+}
+
+// ─── DIET PLANS ──────────────────────────────────────────────────────────────
+
+model DietPlan {
+  id             String              @id @default(cuid())
+  name           String
+  description    String?
+  targetCalories Int?
+  proteinG       Int?
+  carbsG         Int?
+  fatsG          Int?
+  isTemplate     Boolean             @default(false)
+  createdAt      DateTime            @default(now())
+  meals          Meal[]
+  assignments    DietPlanAssignment[]
+}
+
+model Meal {
+  id         String     @id @default(cuid())
+  dietPlanId String
+  dietPlan   DietPlan   @relation(fields: [dietPlanId], references: [id], onDelete: Cascade)
+  name       String
+  order      Int
+  timing     String?
+  calories   Int?
+  notes      String?
+  items      MealItem[]
+}
+
+model MealItem {
+  id       String @id @default(cuid())
+  mealId   String
+  meal     Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  name     String
+  amount   String?
+  calories Int?
+  proteinG Float?
+  carbsG   Float?
+  fatsG    Float?
+  order    Int
+}
+
+model DietPlanAssignment {
+  id         String         @id @default(cuid())
+  traineeId  String
+  trainee    TraineeProfile @relation(fields: [traineeId], references: [id])
+  dietPlanId String
+  dietPlan   DietPlan       @relation(fields: [dietPlanId], references: [id])
+  startDate  DateTime?
+  endDate    DateTime?
+  isActive   Boolean        @default(true)
+  assignedAt DateTime       @default(now())
+  notes      String?
+}
+
+// ─── CHECK-INS ───────────────────────────────────────────────────────────────
+
+model CheckIn {
+  id              String         @id @default(cuid())
+  traineeId       String
+  trainee         TraineeProfile @relation(fields: [traineeId], references: [id])
+  type            CheckInType
+  submittedAt     DateTime       @default(now())
+  sleepScore      Int?
+  energyScore     Int?
+  adherenceScore  Int?
+  moodScore       Int?
+  traineeNotes    String?
+  sessionDate     DateTime?
+  duration        Int?
+  exercisesLog    String?
+  trainerNotes    String?
+  trainerReview   String?
+  reviewedAt      DateTime?
+}
+
+enum CheckInType {
+  SELF_REPORT
+  SESSION_LOG
+}
+
+// ─── COMMENTS ────────────────────────────────────────────────────────────────
+
+model Comment {
+  id        String         @id @default(cuid())
+  traineeId String
+  trainee   TraineeProfile @relation(fields: [traineeId], references: [id])
+  context   CommentContext
+  contextId String?
+  content   String
+  isPrivate Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+enum CommentContext {
+  PROGRAM
+  DIET
+  CHECKIN
+  GENERAL
+}
+
+// ─── CALCULATION HISTORY ─────────────────────────────────────────────────────
+
+model CalculationRecord {
+  id        String   @id @default(cuid())
+  traineeId String?
+  type      CalcType
+  inputs    Json
+  results   Json
+  createdAt DateTime @default(now())
+}
+
+enum CalcType {
+  BMI
+  BMR
+  WHR
+  BODY_FAT
+  IDEAL_WEIGHT
+  ONE_REP_MAX
+  MACRO
+  WATER_INTAKE
+  TDEE
 }
